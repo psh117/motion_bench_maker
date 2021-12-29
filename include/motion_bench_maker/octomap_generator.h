@@ -64,10 +64,10 @@ namespace robowflex
         // pose The position of the camera in ROS standard coordinates (+Z down camera LoS)
         CloudXYZPtr generateCloud(const RobotPose &cam_pose);
         // Generate the octomap from a PointCloud.
-        bool updateOctoMap(const CloudXYZPtr &cloud, const RobotPose &cam_pose);
+        bool updateOctoMap(const CloudXYZPtr &cloud, const RobotPose &cam_pose, bool filled = false, double fill_legth = 0.);
 
         bool geomToSensed(const ScenePtr &geometric, const ScenePtr &sensed,
-                          const IO::RVIZHelperPtr &rviz = nullptr);
+                          const IO::RVIZHelperPtr &rviz = nullptr, bool filled = false, double fill_legth = 0.);
 
         CloudXYZPtr getLastPointCloud();
 

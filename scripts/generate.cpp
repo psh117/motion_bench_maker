@@ -25,8 +25,8 @@ int main(int argc, char **argv)
     ros::NodeHandle node("~");
 
     std::string dataset, config, planner_name;
-    bool solve, visualize, sensed, pointcloud, visualize_sensed, tuning_mode;
-
+    bool solve, visualize, sensed, pointcloud, visualize_sensed, tuning_mode, filled;
+    double fill_length;
     int start, end;
 
     std::string exec_name = "generate";
@@ -44,6 +44,8 @@ int main(int argc, char **argv)
     error += !parser::get(exec_name, node, "tuning_mode", tuning_mode);
     error += !parser::get(exec_name, node, "start", start);
     error += !parser::get(exec_name, node, "end", end);
+    error += !parser::get(exec_name, node, "filled", filled);
+    error += !parser::get(exec_name, node, "fill_length", fill_length);
     parser::shutdownIfError(exec_name, error);
 
     auto setup = std::make_shared<Setup>(config, dataset);
@@ -105,7 +107,7 @@ int main(int argc, char **argv)
 
         auto scene = scene_geom->deepCopy();
         if (sensed)
-            octomap_generator->geomToSensed(scene_geom, scene, visualize_sensed ? rviz : nullptr);
+            octomap_generator->geomToSensed(scene_geom, scene, visualize_sensed ? rviz : nullptr, filled, fill_length);
 
         // Update the scene in the problem_generator
         problem_generator->updateScene(scene);

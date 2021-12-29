@@ -104,7 +104,7 @@ CloudXYZPtr OctomapGenerator::generateCloud(const RobotPose &cam_pose)
 }
 
 bool OctomapGenerator::geomToSensed(const ScenePtr &geometric, const ScenePtr &sensed,
-                                    const IO::RVIZHelperPtr &rviz)
+                                    const IO::RVIZHelperPtr &rviz, bool filled, double fill_legth)
 {
     tree_->clear();
     fullCloud_->clear();
@@ -132,7 +132,7 @@ bool OctomapGenerator::geomToSensed(const ScenePtr &geometric, const ScenePtr &s
             }
             const auto &cloud = generateCloud(cam_pose);
 
-            if (not updateOctoMap(cloud, cam_pose))
+            if (not updateOctoMap(cloud, cam_pose, filled, fill_legth))
                 return false;
         }
     }
@@ -145,7 +145,7 @@ bool OctomapGenerator::geomToSensed(const ScenePtr &geometric, const ScenePtr &s
 // Adapted from
 // docs.ros.org/melodic/api/moveit_ros_perception/html/classoccupancy__map__monitor_1_1PointCloudOctomapUpdater.html#aa364d681282ab9b68eb2e94e99fefe4c
 
-bool OctomapGenerator::updateOctoMap(const CloudXYZPtr &cloud, const RobotPose &cam_pose)
+bool OctomapGenerator::updateOctoMap(const CloudXYZPtr &cloud, const RobotPose &cam_pose, bool filled, double fill_legth)
 {
     const auto cso = cloud->sensor_origin_;
     // I need the transform to map coordinates
@@ -169,9 +169,20 @@ bool OctomapGenerator::updateOctoMap(const CloudXYZPtr &cloud, const RobotPose &
                 auto point = cam_pose * Eigen::Vector3d{p.x, p.y, p.z};
                 occupied_cells.insert(tree_->coordToKey(point.x(), point.y(), point.z()));
                 fullCloud_->push_back(pcl::PointXYZ(point.x(), point.y(), point.z()));
+
+                if (filled)
+                {
+                    // this fills unvisible area
+                    auto point_vec = point - cam_pose.translation();
+                    auto point2 = point + point_vec * fill_legth;
+                    octomap::point3d target_start(point.x(), point.y(), point.z());
+                    octomap::point3d target_end(point2.x(), point2.y(), point2.z());
+                    if (tree_->computeRayKeys(target_start, target_end, key_ray_))
+                        occupied_cells.insert(key_ray_.begin(), key_ray_.end());
+                }
             }
         }
-
+        
         // TODO: Maybe I should remove this completelely
         /* compute the free cells along each ray that ends at an occupied cell */
         for (auto it = occupied_cells.begin(), end = occupied_cells.end(); it != end; ++it)
