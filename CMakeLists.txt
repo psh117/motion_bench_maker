@@ -30,6 +30,7 @@ list(APPEND SOURCES
     src/yaml.cpp
     src/problem_generator.cpp
     src/octomap_generator.cpp
+    src/local_occupancy_grid.cpp
   )
 
 list(APPEND INCLUDES
@@ -70,6 +71,10 @@ add_dependencies(paper_example ${catkin_EXPORTED_TARGETS})
 add_executable(generate scripts/generate.cpp)
 target_link_libraries(generate ${LIBRARY_NAME})
 add_dependencies(generate ${catkin_EXPORTED_TARGETS})
+
+add_executable(generate_learning_dataset scripts/generate_learning_dataset.cpp)
+target_link_libraries(generate_learning_dataset ${LIBRARY_NAME})
+add_dependencies(generate_learning_dataset ${catkin_EXPORTED_TARGETS})
 
 add_executable(sample_scenes scripts/sample_scenes.cpp)
 target_link_libraries(sample_scenes ${LIBRARY_NAME})

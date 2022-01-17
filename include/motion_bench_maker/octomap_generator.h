@@ -27,6 +27,8 @@ namespace occupancy_map_monitor = collision_detection;
 
 #endif
 
+#include <motion_bench_maker/local_occupancy_grid.h>
+
 namespace gds = gl_depth_sim;
 
 namespace robowflex
@@ -64,12 +66,13 @@ namespace robowflex
         // pose The position of the camera in ROS standard coordinates (+Z down camera LoS)
         CloudXYZPtr generateCloud(const RobotPose &cam_pose);
         // Generate the octomap from a PointCloud.
-        bool updateOctoMap(const CloudXYZPtr &cloud, const RobotPose &cam_pose, bool filled = false, double fill_legth = 0.);
+        bool updateOctoMap(const CloudXYZPtr &cloud, const RobotPose &cam_pose, bool filled = false, double fill_length = 0.);
 
         bool geomToSensed(const ScenePtr &geometric, const ScenePtr &sensed,
-                          const IO::RVIZHelperPtr &rviz = nullptr, bool filled = false, double fill_legth = 0.);
+                          const IO::RVIZHelperPtr &rviz = nullptr, bool filled = false, double fill_length = 0.);
 
         CloudXYZPtr getLastPointCloud();
+        LocalOccupancyGridPtr getLocalOccupancy();
 
     private:
         gds::Mesh geomToMesh(const GeometryPtr &geom, const std::string &name);
@@ -80,6 +83,7 @@ namespace robowflex
         ScenePtr cloudToOctomap(const RobotPose &cam_pose, pcl::PointCloud<pcl::PointXYZ>);
         std::shared_ptr<gds::SimDepthCamera> sim_;
         occupancy_map_monitor::OccMapTreePtr tree_;
+        LocalOccupancyGridPtr local_occupancy_;
         CloudXYZPtr fullCloud_;
 
         octomap::KeyRay key_ray_;

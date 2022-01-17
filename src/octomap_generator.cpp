@@ -3,6 +3,7 @@
 // Robowflex dataset
 #include "geometric_shapes/mesh_operations.h"
 #include <motion_bench_maker/octomap_generator.h>
+#include <motion_bench_maker/local_occupancy_grid.h>
 #include <motion_bench_maker/yaml.h>
 
 // Robowflex library
@@ -35,6 +36,7 @@ OctomapGenerator::OctomapGenerator(const std::string &config)
 
     tree_ = std::make_shared<occupancy_map_monitor::OccMapTree>(sensors_.resolution);
     sim_ = std::make_shared<gds::SimDepthCamera>(props_);
+    local_occupancy_ = std::make_shared<LocalOccupancyGrid>();
     fullCloud_ = std::make_shared<CloudXYZ>();
 };
 
@@ -104,7 +106,7 @@ CloudXYZPtr OctomapGenerator::generateCloud(const RobotPose &cam_pose)
 }
 
 bool OctomapGenerator::geomToSensed(const ScenePtr &geometric, const ScenePtr &sensed,
-                                    const IO::RVIZHelperPtr &rviz, bool filled, double fill_legth)
+                                    const IO::RVIZHelperPtr &rviz, bool filled, double fill_length)
 {
     tree_->clear();
     fullCloud_->clear();
@@ -117,7 +119,9 @@ bool OctomapGenerator::geomToSensed(const ScenePtr &geometric, const ScenePtr &s
         if (not geometric->hasObject(el.first))
             ROS_ERROR("Object %s does not exist", el.first.c_str());
 
-        const auto eye = geometric->getObjectPose(el.first) * el.second;
+        const auto robot_pose = geometric->getObjectPose(el.first);
+        const auto obj_pose = geometric->getObjectPose("Can1");
+        const auto eye = robot_pose * el.second;
         for (const auto &origin : sensors_.cam_points)
         {
             const auto cam_pose = lookat(eye, origin);
@@ -130,10 +134,30 @@ bool OctomapGenerator::geomToSensed(const ScenePtr &geometric, const ScenePtr &s
                 std::cout << "Visualizing press enter to continue" << std::endl;
                 std::cin.ignore();
             }
-            const auto &cloud = generateCloud(cam_pose);
-
-            if (not updateOctoMap(cloud, cam_pose, filled, fill_legth))
+            const CloudXYZPtr cloud = generateCloud(cam_pose);
+            if (not updateOctoMap(cloud, cam_pose, filled, fill_length))
                 return false;
+            local_occupancy_->generateFromPointCloud(cloud, cam_pose, obj_pose, filled, fill_length);
+            // if (rviz)
+            // {
+                // std::ofstream ofile("points.txt");
+                // int n_grid = local_occupancy_->getGridNum();
+                // const auto & map = local_occupancy_->getGridMap();
+                // for (int i=0; i<n_grid; ++i)
+                //     for (int j=0; j<n_grid; ++j)
+                //         for (int k=0; k<n_grid; ++k)
+                //         {
+                //             // std::stringstream ss;
+                //             if (map(i,j,k))
+                //             {
+                //                 ofile << local_occupancy_->getVoxelPos(i,j,k).transpose() <<  std::endl;
+                //                 // ss << "vox" << i << "," << j << "," << k;
+                //                 // std::cout << ss.str() << std::endl;
+                //                 // rviz->addMarker(local_occupancy_->getVoxelPos(i,j,k),ss.str());
+                //                 // std::cout << " exist " << local_occupancy_->getVoxelPos(i,j,k).transpose() <<  std::endl;
+                //             }
+                //         }
+            // }
         }
     }
     sensed->getScene()->processOctomapPtr(tree_, RobotPose::Identity());
@@ -145,7 +169,7 @@ bool OctomapGenerator::geomToSensed(const ScenePtr &geometric, const ScenePtr &s
 // Adapted from
 // docs.ros.org/melodic/api/moveit_ros_perception/html/classoccupancy__map__monitor_1_1PointCloudOctomapUpdater.html#aa364d681282ab9b68eb2e94e99fefe4c
 
-bool OctomapGenerator::updateOctoMap(const CloudXYZPtr &cloud, const RobotPose &cam_pose, bool filled, double fill_legth)
+bool OctomapGenerator::updateOctoMap(const CloudXYZPtr &cloud, const RobotPose &cam_pose, bool filled, double fill_length)
 {
     const auto cso = cloud->sensor_origin_;
     // I need the transform to map coordinates
@@ -170,16 +194,16 @@ bool OctomapGenerator::updateOctoMap(const CloudXYZPtr &cloud, const RobotPose &
                 occupied_cells.insert(tree_->coordToKey(point.x(), point.y(), point.z()));
                 fullCloud_->push_back(pcl::PointXYZ(point.x(), point.y(), point.z()));
 
-                if (filled)
-                {
-                    // this fills unvisible area
-                    auto point_vec = point - cam_pose.translation();
-                    auto point2 = point + point_vec * fill_legth;
-                    octomap::point3d target_start(point.x(), point.y(), point.z());
-                    octomap::point3d target_end(point2.x(), point2.y(), point2.z());
-                    if (tree_->computeRayKeys(target_start, target_end, key_ray_))
-                        occupied_cells.insert(key_ray_.begin(), key_ray_.end());
-                }
+                // if (filled)
+                // {
+                //     // this fills unvisible area
+                //     auto point_vec = point - cam_pose.translation();
+                //     auto point2 = point + point_vec * fill_length;
+                //     octomap::point3d target_start(point.x(), point.y(), point.z());
+                //     octomap::point3d target_end(point2.x(), point2.y(), point2.z());
+                //     if (tree_->computeRayKeys(target_start, target_end, key_ray_))
+                //         occupied_cells.insert(key_ray_.begin(), key_ray_.end());
+                // }
             }
         }
         
@@ -233,4 +257,9 @@ bool OctomapGenerator::updateOctoMap(const CloudXYZPtr &cloud, const RobotPose &
 CloudXYZPtr OctomapGenerator::getLastPointCloud()
 {
     return fullCloud_;
+}
+
+LocalOccupancyGridPtr OctomapGenerator::getLocalOccupancy()
+{
+    return local_occupancy_;
 }
